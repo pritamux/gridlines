@@ -28,6 +28,7 @@ Then ask your agent for an alignment pass, or call it directly:
 | `skills/gridlines/probe.js` | Runs in the page: measures the ink edges of text, icons and controls, draws the guides, lists every miss |
 | `skills/gridlines/audit.mjs` | Loads a page in headless Chromium, runs the probe, saves a 2x capture with the guides and a JSON report |
 | `examples/sidebar.html` | A sidebar with four planted misses, to see a report before pointing it at your app |
+| `examples/card-gallery.html` | A responsive gallery with one deliberately oversized desktop gap |
 
 ## Try the probe
 
@@ -49,6 +50,26 @@ PW_DIR=/tmp/gridlines-pw node skills/gridlines/audit.mjs "file://$PWD/examples/s
 ```
 
 The probe also works without the script: paste `probe.js` into any page's console and call `window.__gridlines()`.
+
+### Check gaps between cards
+
+Pass a `spacing` array to check the rendered gaps between direct children of selected containers. Set `row` (vertical), `column` (horizontal), or both, in CSS pixels. A difference greater than 1 px is a miss. A single-column group has no horizontal gaps to check.
+
+```js
+window.__gridlines({
+  spacing: [
+    { selector: ".gallery", row: 20 },
+    { selector: ".cards", row: 20, column: 20 },
+  ],
+})
+```
+
+For the same check in the headless script, set `SPACING` to the JSON array of rules. The example reports a 32 px gap between the groups at 1440 px (expected 20 px) even though the gallery's CSS `gap` is set to 20 px. At 390 px, use `row: 10` to match the gallery's mobile spacing. The JSON includes the measured gaps and the screenshot marks any gap misses in magenta.
+
+```sh
+SPACING='[{"selector":".gallery","row":20},{"selector":".cards","row":20,"column":20}]' \
+  PW_DIR=/tmp/gridlines-pw node skills/gridlines/audit.mjs "file://$PWD/examples/card-gallery.html" .gridlines 1440
+```
 
 ![How it works](media/how-it-works.png)
 

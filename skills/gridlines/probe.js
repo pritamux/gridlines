@@ -85,14 +85,90 @@ window.__gridlines = function (opts = {}) {
     return box;
   };
 
+  const nameOf = (el) =>
+    el.getAttribute("aria-label") ||
+    el.querySelector("h1, h2, h3, [role='heading']")?.textContent.trim().slice(0, 30) ||
+    el.dataset.slot ||
+    el.tagName.toLowerCase();
+
+  const spacingTargets = new Map();
+  if (opts.spacing !== undefined && !Array.isArray(opts.spacing))
+    throw new TypeError("spacing must be an array of rules");
+  for (const { selector, row, column } of opts.spacing || []) {
+    const expected = Object.fromEntries(
+      Object.entries({ row, column }).filter(([, px]) => px !== undefined),
+    );
+    const values = Object.values(expected);
+    if (typeof selector !== "string" || !selector.trim() ||
+        !values.length || values.some((px) => !Number.isFinite(px) || px < 0))
+      throw new TypeError("Each spacing rule needs a selector and at least one non-negative gap in px");
+    for (const container of document.querySelectorAll(selector)) {
+      spacingTargets.set(container, { ...spacingTargets.get(container), ...expected });
+    }
+  }
+
+  const measureSpacing = (container, expected) => {
+    const items = [...container.children].flatMap((el, index) => {
+      const r = el.getBoundingClientRect();
+      const { position } = getComputedStyle(el);
+      if (!r.width || !r.height || skip(el) || !shown(el) ||
+          position === "absolute" || position === "fixed") return [];
+      return [{ r, name: `${nameOf(el)} [${index + 1}]` }];
+    });
+    const gaps = [];
+    for (const [axis, target] of Object.entries(expected)) {
+      const [start, end, crossStart, crossEnd] = axis === "row"
+        ? ["top", "bottom", "left", "right"]
+        : ["left", "right", "top", "bottom"];
+      const ordered = [...items].sort((a, b) => a.r[start] - b.r[start]);
+      for (const { r: from, name } of ordered) {
+        // A spanning item can have several neighbors, one per unobstructed part of its edge.
+        let open = [[from[crossStart], from[crossEnd]]];
+        for (const { r: to, name: neighbor } of ordered) {
+          if (to[start] - from[start] <= TOL) continue;
+          const first = to[crossStart], last = to[crossEnd];
+          const overlap = open.find(([a, b]) => Math.min(b, last) - Math.max(a, first) > TOL);
+          if (!overlap) continue;
+          open = open.flatMap(([a, b]) => b <= first || a >= last
+            ? [[a, b]]
+            : [[a, first], [last, b]].filter(([l, r]) => r - l > TOL),
+          );
+
+          const px = +(to[start] - from[end]).toFixed(2);
+          const miss = Math.abs(px - target) > TOL;
+          gaps.push({ axis, px, expected: target, from: name, to: neighbor, miss });
+          if (draw && miss) {
+            const cross = (Math.min(overlap[1], last) + Math.max(overlap[0], first)) / 2;
+            const mark = document.createElement("div");
+            mark.dataset.gridline = "";
+            mark.setAttribute("aria-hidden", "true");
+            Object.assign(mark.style, {
+              position: "fixed",
+              [start]: `${Math.min(from[end], to[start])}px`,
+              [crossStart]: `${cross}px`,
+              [axis === "row" ? "height" : "width"]: `${Math.max(2, Math.abs(px))}px`,
+              [axis === "row" ? "borderLeft" : "borderTop"]: "2px dashed #d946ef",
+              zIndex: 2147483646,
+              pointerEvents: "none",
+            });
+            document.body.appendChild(mark);
+          }
+          if (!open.length) break;
+        }
+      }
+    }
+    return { expected, gaps };
+  };
+
   const containers = [...new Set(document.querySelectorAll(containerSelector))].filter((c) => {
     const r = c.getBoundingClientRect();
     return r.width > 120 && r.height > 24 && shown(c);
   });
 
   const out = [];
-  for (const c of containers) {
+  for (const c of new Set([...containers, ...spacingTargets.keys()])) {
     const cr = c.getBoundingClientRect();
+    if (!cr.width || !cr.height || !shown(c)) continue;
     const items = [];
     const seenBoxes = new Set();
 
@@ -216,12 +292,9 @@ window.__gridlines = function (opts = {}) {
       return miss;
     });
 
-    const name =
-      c.getAttribute("aria-label") ||
-      c.querySelector("h1, h2, h3, [role='heading']")?.textContent.trim().slice(0, 30) ||
-      c.dataset.slot ||
-      c.tagName.toLowerCase();
-    out.push({ container: name, x: Math.round(cr.left), w: Math.round(cr.width), lines, outliers, rows: rowEdges });
+    const report = { container: nameOf(c), x: Math.round(cr.left), w: Math.round(cr.width), lines, outliers, rows: rowEdges };
+    if (spacingTargets.has(c)) report.spacing = measureSpacing(c, spacingTargets.get(c));
+    out.push(report);
 
     if (draw) {
       const guide = (x, colour) => {

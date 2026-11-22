@@ -11,6 +11,7 @@
 //   SCHEME         light | dark (default: no preference)
 //   SETTLE_MS      wait after load before measuring (default 3000)
 //   CONTAINERS     CSS selectors to measure instead of the defaults
+//   SPACING        JSON array of optional spacing rules (selector, row, column)
 //   TAG            suffix for the output file names
 import { createRequire } from "node:module";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -26,6 +27,7 @@ if (!url || !outDir) {
 const require = createRequire(join(resolve(process.env.PW_DIR || process.cwd()), "noop.js"));
 const { chromium } = require("playwright");
 const here = dirname(fileURLToPath(import.meta.url));
+const spacing = process.env.SPACING ? JSON.parse(process.env.SPACING) : undefined;
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const page = await browser.newPage({
@@ -41,8 +43,8 @@ if (prepPath) {
 }
 await page.addScriptTag({ content: readFileSync(join(here, "probe.js"), "utf8") });
 const result = await page.evaluate(
-  (containers) => window.__gridlines({ containers: containers || undefined }),
-  process.env.CONTAINERS || "",
+  (options) => window.__gridlines(options),
+  { containers: process.env.CONTAINERS || undefined, spacing },
 );
 
 mkdirSync(outDir, { recursive: true });
@@ -60,5 +62,11 @@ for (const c of result) {
   console.log(`   lead ${fmt(lead)}  box ${fmt(box)}  icon centre ${fmt(iconCentre)}  label ${fmt(label)}  trailing ${fmt(trailing)}  trailing centre ${fmt(trailCentre)}`);
   for (const o of c.outliers)
     console.log(`   MISS y${o.y} ${o.edge}: ${o.px}px vs ${o.line}px  ${o.item}`);
+  if (c.spacing) {
+    const { expected, gaps } = c.spacing;
+    console.log(`   spacing row ${fmt(expected.row)}  column ${fmt(expected.column)}  (${gaps.length} measured)`);
+    for (const gap of gaps.filter((g) => g.miss))
+      console.log(`   MISS ${gap.axis} gap: ${gap.px}px vs ${gap.expected}px  ${gap.from} → ${gap.to}`);
+  }
 }
 console.log(`\ncapture: ${join(outDir, `${slug}.png`)}`);
