@@ -29,7 +29,9 @@ Inject `probe.js` (in this folder) and call `window.__gridlines()`. Two ways:
 
 Measure at 1440px and at 390px. Open every overlay the page owns: menus, selects, popovers, dialogs, sheets, the command palette. Save every capture under `.gridlines/` in the project and keep that folder out of version control.
 
-The probe measures ink, not boxes: a text run's glyph bounds, an icon's drawn shape (not its viewBox), and for a boxed control (fill, full border or shadow) the box itself. It draws, per container: the **lead line** (first ink in text rows) and the **label line** (first text after a leading icon) in solid red, the **box line** in faint red, the **icon-column centre** in fainter red, the **trailing line** in blue, and the **trailing centre** in amber.
+For a card layout with known spacing rules, pass `spacing: [{ selector: ".cards", row: 20, column: 20 }]` to the probe, or pass the JSON array through `SPACING` to the headless script. Select a wrapper to measure the gaps between stacked groups and each grid to measure gaps between its cards. Use the project's expected gap for each axis and viewport. The probe measures the rendered distance between neighboring direct children's border boxes.
+
+For alignment, the probe measures a text run's glyph bounds, an icon's drawn shape, and the border box of a control with a fill, full border or shadow. It draws, per container: the **lead line** (first ink in text rows) and the **label line** (first text after a leading icon) in solid red, the **box line** in faint red, the **icon-column centre** in fainter red, the **trailing line** in blue, and the **trailing centre** in amber.
 
 ### 2. Read
 
@@ -60,6 +62,8 @@ Then classify every row as edge-positioned or centred. A row is never in between
 ### 5. Re-draw
 
 Run the probe again on the same states. Pass: every item within 1px of its line. The 1px allowance is the glyph's side bearing; 2px or more is a miss. Check the 390px width did not break: wrapped toolbars must still end on the trailing line.
+
+If spacing checks were enabled, verify each measured gap is within 1px of the expected gap at that width. Preserve intentionally different spacing between groups or at different breakpoints.
 
 ### 6. Record and report
 

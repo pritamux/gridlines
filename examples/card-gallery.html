@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card gallery spacing</title>
+<style>
+  body { margin: 24px; font: 16px system-ui, sans-serif; background: #f1f5f9; color: #172033; }
+  .gallery, .cards { display: grid; gap: 20px; }
+  .gallery { max-width: 720px; margin-inline: auto; }
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .featured { margin-block-start: 12px; }
+  article { padding: 16px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; }
+  h2 { margin: 0 0 8px; font-size: 18px; }
+  p { margin: 0; }
+  @media (max-width: 640px) {
+    .gallery, .cards { gap: 10px; }
+    .cards { grid-template-columns: 1fr; }
+    .featured { margin-block-start: 0; }
+  }
+</style>
+<main class="gallery" aria-label="Card gallery">
+  <section class="cards" aria-label="First group">
+    <article><h2>Fern</h2><p>Partial shade</p></article>
+    <article><h2>Rosemary</h2><p>Full sun</p></article>
+    <article><h2>Mint</h2><p>Partial shade</p></article>
+    <article><h2>Lavender</h2><p>Full sun</p></article>
+  </section>
+  <section class="cards featured" aria-label="Second group">
+    <article><h2>Basil</h2><p>Full sun</p></article>
+    <article><h2>Parsley</h2><p>Partial shade</p></article>
+  </section>
+</main>
+</html>
