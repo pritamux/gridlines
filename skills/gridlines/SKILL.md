@@ -29,7 +29,7 @@ Inject `probe.js` (in this folder) and call `window.__gridlines()`. Two ways:
 
 Measure at 1440px and at 390px. Open every overlay the page owns: menus, selects, popovers, dialogs, sheets, the command palette. Save every capture under `.gridlines/` in the project and keep that folder out of version control.
 
-The probe measures ink, not boxes: a text run's glyph bounds, an icon's SVG bounds, and for a boxed control (fill, full border or shadow) the box itself. It draws, per container: the **lead line** (first ink in text rows) and the **label line** (first text after a leading icon) in solid red, the **box line** in faint red, the **icon-column centre** in fainter red, the **trailing line** in blue, and the **trailing centre** in amber.
+The probe measures ink, not boxes: a text run's glyph bounds, an icon's drawn shape (not its viewBox), and for a boxed control (fill, full border or shadow) the box itself. It draws, per container: the **lead line** (first ink in text rows) and the **label line** (first text after a leading icon) in solid red, the **box line** in faint red, the **icon-column centre** in fainter red, the **trailing line** in blue, and the **trailing centre** in amber.
 
 ### 2. Read
 

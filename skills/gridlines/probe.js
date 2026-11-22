@@ -37,7 +37,29 @@ window.__gridlines = function (opts = {}) {
     return cs.visibility !== "hidden" && parseFloat(cs.opacity) > 0;
   };
   const skip = (el) =>
-    el.closest('[aria-hidden="true"], .sr-only, [data-gridline], canvas');
+    el.closest('.sr-only, [data-gridline], canvas');
+
+  // An <svg>'s box is its viewBox, and glyphs sit at different insets inside
+  // it. The ink is the drawn shape's bounds plus half its stroke.
+  const ink = (el) => {
+    const r = el.getBoundingClientRect();
+    if (el.tagName.toLowerCase() !== "svg") return r;
+    try {
+      const b = el.getBBox();
+      const m = el.getScreenCTM();
+      if (!m || !b.width || !b.height) return r;
+      const stroked = el.querySelector("[stroke-width]") || el;
+      const cs = getComputedStyle(stroked);
+      const half = cs.stroke === "none" ? 0 : (parseFloat(cs.strokeWidth) || 0) / 2;
+      const x0 = m.a * (b.x - half) + m.e;
+      const x1 = m.a * (b.x + b.width + half) + m.e;
+      const y0 = m.d * (b.y - half) + m.f;
+      const y1 = m.d * (b.y + b.height + half) + m.f;
+      return new DOMRect(x0, y0, x1 - x0, y1 - y0);
+    } catch {
+      return r;
+    }
+  };
 
   // A box is anything a reader sees as a shape: fill, full border or shadow.
   // Tabs and their indicator are text, not boxes, even when they carry a fill.
@@ -107,7 +129,7 @@ window.__gridlines = function (opts = {}) {
         }
         return;
       }
-      items.push({ r, kind: "icon", t: `<${el.tagName.toLowerCase()}>` });
+      items.push({ r: ink(el), kind: "icon", t: `<${el.tagName.toLowerCase()}>` });
     });
 
     const inside = items.filter(
@@ -159,25 +181,33 @@ window.__gridlines = function (opts = {}) {
     // Ragged-right text is not a trailing item. Only rows whose last item ends
     // in the trailing quarter of the container take part in the trailing line.
     const reachesTrailing = (e) => e.right < cr.width / 4;
+    const near = (v, line) => line !== undefined && Math.abs(v - line) <= TOL;
+    // Any single item has a centre, so a centre is only a line once two rows
+    // sit on it. Otherwise a lone off-line item would excuse itself.
+    const sharedCentre = (key, filter) => {
+      const px = dominant(key, filter)[0]?.px;
+      const rowsOnIt = rowEdges.filter((e) => (!filter || filter(e)) && near(e[key], px)).length;
+      return rowsOnIt >= 2 ? px : undefined;
+    };
     const lines = {
       lead: dominant("left", (e) => e.leftKind !== "box")[0]?.px,
-      iconCentre: dominant("iconCentre")[0]?.px,
+      iconCentre: sharedCentre("iconCentre"),
       label: dominant("label")[0]?.px,
       box: dominant("left", (e) => e.leftKind === "box")[0]?.px,
       trailing: dominant("right", reachesTrailing)[0]?.px,
-      trailCentre: dominant("trailCentre", reachesTrailing)[0]?.px,
+      trailCentre: sharedCentre("trailCentre", reachesTrailing),
     };
 
-    const near = (v, line) => line !== undefined && Math.abs(v - line) <= TOL;
     const outliers = rowEdges.flatMap((e) => {
       const miss = [];
       const leadLine = e.leftKind === "box" ? lines.box : lines.lead;
-      const onALine = [lines.lead, lines.box, lines.label].some((l) => near(e.left, l));
+      const onALine =
+        [lines.lead, lines.box, lines.label].some((l) => near(e.left, l)) || near(e.iconCentre, lines.iconCentre);
       if (leadLine !== undefined && !onALine)
         miss.push({ y: e.y, edge: "leading", px: e.left, line: leadLine, item: e.lt });
       if (e.label !== undefined && !near(e.label, lines.label))
         miss.push({ y: e.y, edge: "label", px: e.label, line: lines.label, item: e.labelText });
-      if (e.iconCentre !== undefined && !near(e.iconCentre, lines.iconCentre))
+      if (e.iconCentre !== undefined && lines.iconCentre !== undefined && !near(e.iconCentre, lines.iconCentre))
         miss.push({ y: e.y, edge: "icon-column", px: e.iconCentre, line: lines.iconCentre, item: e.lt });
       if (reachesTrailing(e) && !near(e.right, lines.trailing) && !near(e.trailCentre, lines.trailCentre))
         miss.push({ y: e.y, edge: "trailing", px: e.right, line: lines.trailing, item: e.rt });

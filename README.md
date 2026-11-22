@@ -41,7 +41,7 @@ PW_DIR=/tmp/gridlines-pw node skills/gridlines/audit.mjs "file://$PWD/examples/s
 
 ```
 ## Sidebar  x0 w240
-   lead 12px  icon centre 20px  label 36px  trailing 12px  trailing centre 22px
+   lead 12px  box -  icon centre 20px  label 36px  trailing 12px  trailing centre -
    MISS y56 trailing: 15px vs 12px  [12]
    MISS y88 leading: 15px vs 12px  Workspace
    MISS y120 label: 38px vs 36px  Views
